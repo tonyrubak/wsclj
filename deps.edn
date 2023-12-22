@@ -1,0 +1,4 @@
+{:deps
+ {ring/ring {:mvn/version "1.11.0-RC2"}
+  ring/ring-jetty-adapter {:mvn/version "1.11.0-RC2"}
+  compojure/compojure {:mvn/version "1.7.0"}}}
