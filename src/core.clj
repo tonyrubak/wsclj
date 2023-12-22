@@ -5,6 +5,8 @@
 
 (def users (atom {}))
 
+(def sockets (atom {}))
+
 (def channels (atom []))
 
 (def server (atom nil))
@@ -21,7 +23,8 @@
         (ws/send socket "PONG")
         (string/starts-with? message "HELLO")
         (let [username (first (rest (string/split message #" ")))]
-          (swap! channels (fn [channels] (assoc users username socket)))
+          (swap! users (fn [users] (assoc users username socket)))
+          (swap! sockets (fn [sockets] (assoc sockets socket username)))
           (ws/send socket (string/join " " ["Welcome" username])))
         :else
         (ws/send socket (string/reverse message))))}})
