@@ -3,6 +3,8 @@
             [ring.adapter.jetty :as jetty]
             [clojure.string :as string]))
 
+(def heartbeatInterval 25000)
+
 (def users (atom {}))
 
 (def sockets (atom {}))
@@ -11,23 +13,29 @@
 
 (def server (atom nil))
 
+(defmulti dispatch (fn [msg _] (first (string/split msg #" "))))
+
+(defmethod dispatch "PING" [_ socket]
+  (ws/send socket "PONG"))
+
+(defmethod dispatch "HELLO" [msg socket]
+  (let [split (string/split msg #" ")
+        username (string/join " " (rest split))]
+    (swap! users (fn [users] (assoc users username socket)))
+    (swap! sockets (fn [sockets] (assoc sockets socket username)))
+    (ws/send socket (str "HEARTBEAT " heartbeatInterval))))
+
+(defmethod dispatch "MESSAGE" [msg socket]
+  (let [message (string/join " " (rest (string/split msg #" ")))
+        sender (@sockets socket)]
+    (doseq [dest (vals @users)]
+      (ws/send dest (string/join " " [(str "<" sender ">") message])))))
+
 (defn handler [request]
   {::ws/listener
-   {:on-open
-    (fn [socket]
-      (ws/send socket "I will echo your messages"))
-    :on-message
+   {:on-message
     (fn [socket message]
-      (cond
-        (string/starts-with? message "PING")
-        (ws/send socket "PONG")
-        (string/starts-with? message "HELLO")
-        (let [username (first (rest (string/split message #" ")))]
-          (swap! users (fn [users] (assoc users username socket)))
-          (swap! sockets (fn [sockets] (assoc sockets socket username)))
-          (ws/send socket (string/join " " ["Welcome" username])))
-        :else
-        (ws/send socket (string/reverse message))))}})
+      (dispatch message socket))}})
 
 (defn start-jetty! []
   (reset! server
